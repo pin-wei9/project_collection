@@ -1,7 +1,6 @@
 #include <iostream>
 #include <string>
 #include <deque>
-#include <algorithm>
 #include <iomanip>
 #include <limits>
 
@@ -44,12 +43,37 @@ std::string determineMoodLabel(double deficit, double quality, double stress, do
         return "平穩 Laifu";
 }
 
+// 將數值轉文字描述（情緒/壓力/睡眠品質）
+std::string getEmotionDesc(double score) {
+    if (score <= 2) return "非常低落";
+    else if (score <= 4) return "有點不開心";
+    else if (score <= 6) return "中等";
+    else if (score <= 8) return "心情不錯";
+    else return "非常開心";
+}
+
+std::string getStressDesc(double score) {
+    if (score <= 2) return "幾乎無壓力";
+    else if (score <= 4) return "輕微壓力";
+    else if (score <= 6) return "中等壓力";
+    else if (score <= 8) return "壓力較大";
+    else return "非常緊繃";
+}
+
+std::string getSleepQualityDesc(double score) {
+    if (score <= 2) return "非常差";
+    else if (score <= 4) return "差";
+    else if (score <= 6) return "普通";
+    else if (score <= 8) return "好";
+    else return "非常好";
+}
+
 // 顯示狀態輸出格式
 void showMoobiState(const std::string& mood, double sleep, double stress, double emotion) {
     std::cout << "\n--- Laifu 綜合狀態：" << mood << " ---" << std::endl;
     std::cout << "平均睡眠時數：" << std::fixed << std::setprecision(1) << sleep << " 小時" << std::endl;
-    std::cout << "平均壓力指數：" << stress << std::endl;
-    std::cout << "平均情緒分數：" << emotion << std::endl;
+    std::cout << "平均壓力指數：" << stress << " (" << getStressDesc(stress) << ")" << std::endl;
+    std::cout << "平均情緒分數：" << emotion << " (" << getEmotionDesc(emotion) << ")" << std::endl;
 }
 
 // 顯示每日即時建議
@@ -57,8 +81,13 @@ void showMoobiFeedback(const MoodEntry& entry) {
     std::cout << "\n--- Laifu 今日回饋 ---" << std::endl;
     bool perfect = true;
 
+    std::cout << "睡眠時數：" << entry.sleepHours << "h (理想：" << entry.idealSleepHours << "h)" << std::endl;
+    std::cout << "睡眠品質：" << entry.sleepQuality << " (" << getSleepQualityDesc(entry.sleepQuality) << ")" << std::endl;
+    std::cout << "壓力指數：" << entry.stressLevel << " (" << getStressDesc(entry.stressLevel) << ")" << std::endl;
+    std::cout << "情緒分數：" << entry.emotionScore << " (" << getEmotionDesc(entry.emotionScore) << ")" << std::endl;
+
     if (entry.sleepHours < entry.idealSleepHours) {
-        std::cout << "[-] 睡眠偏少 (理想：" << entry.idealSleepHours << "h)，建議補眠。" << std::endl;
+        std::cout << "[-] 睡眠偏少，建議補眠。" << std::endl;
         perfect = false;
     }
     if (entry.sleepQuality < 6) {
@@ -128,15 +157,15 @@ T safeInput(const std::string& prompt, T minVal, T maxVal) {
     }
 }
 
-// 新增資料功能（防呆 + 輸入提示)
+// 新增資料功能（防呆 + 文字描述分數）
 void addMoodEntry() {
     MoodEntry entry;
 
     std::cout << "\n請依提示填寫今日的狀態紀錄：" << std::endl;
-    std::cout << "• 睡眠時數：當晚實際睡眠小時數\n";
-    std::cout << "• 睡眠品質：0~10 評分，0=非常差, 10=非常好\n";
-    std::cout << "• 壓力指數：0~10 評分，0=無壓力, 10=非常緊繃\n";
-    std::cout << "• 情緒分數：0~10 評分，0=非常低落, 10=非常開心\n\n";
+    std::cout << "• 情緒分數 (0=非常低落, 5=中等, 10=非常開心)\n";
+    std::cout << "• 壓力分數 (0=無壓力, 5=普通, 10=非常緊繃)\n";
+    std::cout << "• 睡眠品質 (0=非常差, 5=普通, 10=非常好)\n";
+    std::cout << "• 睡眠時數：當晚實際睡眠小時數 (0~24)\n\n";
 
     std::cout << "[1] 輸入日期時間 (格式 MMDD，例如 0205 表示 2 月 5 日): ";
     std::getline(std::cin, entry.dateTime);
@@ -144,13 +173,13 @@ void addMoodEntry() {
     entry.age = safeInput<int>("[2] 您的年齡 (0~120 整數): ", 0, 120);
     entry.sleepHours = safeInput<double>("[3] 睡眠時數 (0~24 小時): ", 0.0, 24.0);
     entry.sleepQuality = safeInput<double>("[4] 睡眠品質 (0~10): ", 0.0, 10.0);
-    entry.stressLevel = safeInput<double>("[5] 壓力指數 (0~10): ", 0.0, 10.0);
+    entry.stressLevel = safeInput<double>("[5] 壓力分數 (0~10): ", 0.0, 10.0);
     entry.emotionScore = safeInput<double>("[6] 情緒分數 (0~10): ", 0.0, 10.0);
 
     entry.idealSleepHours = getIdealSleepHours(entry.age);
     moodEntries.push_back(entry);
 
-    // 顯示即時分析
+    // 顯示每日回饋
     showMoobiFeedback(entry);
     double deficit = entry.idealSleepHours - entry.sleepHours;
     std::string dailyMood = determineMoodLabel(deficit, entry.sleepQuality, entry.stressLevel, entry.emotionScore);
@@ -167,7 +196,7 @@ void addMoodEntry() {
 // 主程式
 int main() {
     int choice;
-    std::cout << "歡迎使用 Laifu 情緒評估系統 v1.0\n";
+    std::cout << "歡迎使用 Laifu 情緒評估系統 \n";
 
     do {
         std::cout << "\n--- 主選單 ---\n";
